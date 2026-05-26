@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocky Intelligence System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --bg2: #0f1216;
+    --bg3: #141820;
+    --bg4: #1a2030;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8ecf0;
+    --text2: #8a9ab0;
+    --text3: #4a5568;
+    --accent: #00d4ff;
+    --accent2: #0099cc;
+    --red: #ff4d6d;
+    --amber: #ffb347;
+    --green: #39d98a;
+    --purple: #a78bfa;
+    --teal: #2dd4bf;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.01) 2px, rgba(0,212,255,0.01) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ─── TOPBAR ─── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+    50% { opacity: 0.5; box-shadow: 0 0 2px var(--accent); }
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .date-display {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 1px;
+  }
+
+  .view-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg3);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+    background: transparent;
+    color: var(--text2);
+  }
+
+  .tab-btn.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-export {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+
+  .btn-export:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main {
+    flex: 1;
+    padding: 20px 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ─── EXECUTIVE PULSE BAR ─── */
+  .pulse-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .pulse-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .pulse-card:hover { border-color: var(--border2); }
+
+  .pulse-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .pulse-card.hot::before { background: var(--red); }
+  .pulse-card.warn::before { background: var(--amber); }
+  .pulse-card.ok::before { background: var(--green); }
+  .pulse-card.info::before { background: var(--accent); }
+  .pulse-card.neutral::before { background: var(--purple); }
+
+  .pulse-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .pulse-value {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .pulse-sub {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+
+  /* ─── GRID LAYOUT ─── */
+  .grid-main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .grid-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* ─── PANELS ─── */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  .panel-body { padding: 16px 18px; }
+
+  /* ─── SIGNAL FEED ─── */
+  .signal-list { display: flex; flex-direction: column; gap: 0; }
+
+  .signal-item {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .signal-item:hover { background: var(--bg3); }
+  .signal-item:last-child { border-bottom: none; }
+
+  .signal-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .tag-nhansu { background: rgba(167,139,250,0.15); color: var(--purple); }
+  .tag-ma { background: rgba(0,212,255,0.15); color: var(--accent); }
+  .tag-chinhsach { background: rgba(57,217,138,0.15); color: var(--green); }
+  .tag-jd { background: rgba(255,179,71,0.15); color: var(--amber); }
+  .tag-trunggian { background: rgba(45,212,191,0.15); color: var(--teal); }
+
+  .signal-content { flex: 1; min-width: 0; }
+
+  .signal-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  .signal-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    display: flex;
+    gap: 10px;
+  }
+
+  .signal-heat {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .heat-badge {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .heat-hot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .heat-warm { background: var(--amber); }
+  .heat-cool { background: var(--green); }
+
+  /* ─── RADAR CHART ─── */
+  .radar-grid { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+
+  .radar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .radar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+    width: 80px;
+    flex-shrink: 0;
+  }
+
+  .radar-bar-bg {
+    flex: 1;
+    height: 4px;
+    background: var(--bg4);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .radar-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .radar-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    width: 20px;
+    text-align: right;
+  }
+
+  /* ─── REGION MAP ─── */
+  .region-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 18px;
+  }
+
+  .region-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .region-badge {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    width: 40px;
+    text-align: center;
+    padding: 4px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .region-bac { background: rgba(0,212,255,0.1); color: var(--accent); }
+  .region-trung { background: rgba(255,179,71,0.1); color: var(--amber); }
+  .region-nam { background: rgba(57,217,138,0.1); color: var(--green); }
+
+  .region-info { flex: 1; }
+
+  .region-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .region-sub {
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .region-temp {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  /* ─── OPPORTUNITY TABLE ─── */
+  .opp-table { width: 100%; border-collapse: collapse; }
+
+  .opp-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  .opp-table td {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    vertical-align: middle;
+  }
+
+  .opp-table tr:last-child td { border-bottom: none; }
+  .opp-table tr:hover td { background: var(--bg3); }
+
+  .opp-position {
+    font-weight: 500;
+    color: var(--text);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .opp-company {
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .prob-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .prob-track {
+    width: 60px;
+    height: 4px;
+    background: var(--bg4);
+    border-radius: 2px;
+  }
+
+  .prob-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--green);
+  }
+
+  .prob-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  .action-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    cursor: pointer;
+  }
+
+  .act-urgent { border-color: var(--red); color: var(--red); }
+  .act-watch { border-color: var(--amber); color: var(--amber); }
+  .act-pipeline { border-color: var(--green); color: var(--green); }
+
+  /* ─── POWER BROKER ─── */
+  .broker-list { display: flex; flex-direction: column; gap: 0; }
+
+  .broker-item {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .broker-item:last-child { border-bottom: none; }
+
+  .broker-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .broker-type {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.5px;
+  }
+
+  .broker-activity {
+    display: flex;
+    gap: 3px;
+  }
+
+  .activity-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  .dot-on { background: var(--red); }
+  .dot-mid { background: var(--amber); }
+  .dot-off { background: var(--bg4); }
+
+  /* ─── WEEKLY VIEW ─── */
+  #weekly-view { display: none; }
+
+  .weekly-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .week-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .week-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .week-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .report-container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .report-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .report-section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .report-body {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .report-body p { margin-bottom: 10px; }
+
+  .report-kv {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 8px 16px;
+    font-size: 12px;
+  }
+
+  .report-kv-key {
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 2px;
+  }
+
+  .report-kv-val { color: var(--text); }
+
+  /* ─── EXPORT MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 28px;
+    width: 400px;
+    max-width: 90vw;
+  }
+
+  .modal-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .modal-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 20px;
+  }
+
+  .export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .export-opt {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .export-opt:hover { border-color: var(--accent); }
+
+  .export-opt-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .export-opt-text .name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .export-opt-text .desc {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+
+  .btn-cancel {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── BADGE ─── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-live { background: rgba(255,77,109,0.15); color: var(--red); }
+  .badge-new { background: rgba(0,212,255,0.15); color: var(--accent); }
+
+  /* ─── GROQ STATUS ─── */
+  .groq-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.5px;
+  }
+
+  .groq-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 200px;
+  }
+
+  /* ─── WEEKLY ACTION ITEMS ─── */
+  .action-list { list-style: none; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+  .action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .action-check {
+    width: 16px; height: 16px;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+
+  .action-check:hover { background: var(--bg4); }
+  .action-check.checked { background: var(--accent); border-color: var(--accent); }
+
+  .action-deadline {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 3px;
+  }
+
+  @media print {
+    body { background: white; color: black; }
+    .topbar, .btn-export { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      ROCKY INTELLIGENCE
+    </div>
+    <div class="topbar-right">
+      <div class="groq-status">
+        <div class="groq-dot"></div>
+        GROQ LIVE
+      </div>
+      <div class="date-display" id="live-date"></div>
+      <div class="view-tabs">
+        <button class="tab-btn active" onclick="switchView('daily')">DAILY FEED</button>
+        <button class="tab-btn" onclick="switchView('weekly')">WEEKLY REPORT</button>
+        <button class="tab-btn" onclick="switchView('watchlist')">⭐ WATCHLIST</button>
+      </div>
+      <button class="btn-export" onclick="openExport()">⬆ EXPORT</button>
+    </div>
+  </div>
+
+  <!-- ─── DAILY VIEW ─── -->
+  <div id="daily-view">
+    <div class="main">
+
+      <!-- PULSE BAR -->
+      <div class="pulse-bar">
+        <div class="pulse-card hot">
+          <div class="pulse-label">TÍN HIỆU NÓNG</div>
+          <div class="pulse-value">ĐLMT Miền Trung</div>
+          <div class="pulse-sub">BOT điện gió offshore → tìm CFO</div>
+        </div>
+        <div class="pulse-card warn">
+          <div class="pulse-label">NGÀNH DỊCH CHUYỂN</div>
+          <div class="pulse-value">Khu Công Nghiệp</div>
+          <div class="pulse-sub">3 M&A đang đàm phán — Bắc &amp; Nam</div>
+        </div>
+        <div class="pulse-card info">
+          <div class="pulse-label">VÙNG TRỌNG ĐIỂM</div>
+          <div class="pulse-value">Hải Phòng — Quảng Ninh</div>
+          <div class="pulse-sub">Quy hoạch logistics mới phê duyệt</div>
+        </div>
+        <div class="pulse-card ok">
+          <div class="pulse-label">CƠ HỘI NHÂN SỰ</div>
+          <div class="pulse-value">4 vị trí C-suite</div>
+          <div class="pulse-sub">Cửa sổ 4–8 tuần tới</div>
+        </div>
+        <div class="pulse-card neutral">
+          <div class="pulse-label">CẢNH BÁO</div>
+          <div class="pulse-value">Radar 4 yếu</div>
+          <div class="pulse-sub">Cần bổ sung keyword headhunter</div>
+        </div>
+      </div>
+
+      <!-- MAIN GRID -->
+      <div class="grid-main">
+
+        <!-- SIGNAL FEED -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <div class="panel-title-dot" style="background:var(--red)"></div>
+              SIGNAL FEED HÔM NAY
+              <span id="feed-status" class="badge badge-live">● LOADING</span>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <select style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:6px;" onchange="filterSignals(this.value)">
+                <option value="all">TẤT CẢ RADAR</option>
+                <option value="nhansu">NHÂN SỰ</option>
+                <option value="ma">M&A</option>
+                <option value="chinhsach">CHÍNH SÁCH</option>
+                <option value="jd">JD VIP</option>
+                <option value="trunggian">TRUNG GIAN</option>
+              </select>
+            </div>
+          </div>
+          <div class="signal-list" id="signal-feed">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+
+          <!-- RADAR INTENSITY -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <div class="panel-title-dot" style="background:var(--purple)"></div>
+                RADAR INTENSITY
+              </div>
+            </div>
+            <div class="radar-grid">
+              <div class="radar-row">
+                <div class="radar-label">R1 · NHÂN SỰ</div>
+                <div class="radar-bar-bg"><div class="radar-bar-fill" style="width:80%;background:var(--purple)"></div></div>
+                <div class="radar-count">8</div>
+              </div>
+              <div class="radar-row">
+                <div class="radar-label">R2 · M&A</div>
+                <div class="radar-bar-bg"><div class="radar-bar-fill" style="width:60%;background:var(--accent)"></div></div>
+                <div class="radar-count">6</div>
+              </div>
+              <div class="radar-row">
+                <div class="radar-label">R3 · JD VIP</div>
+                <div class="radar-bar-bg"><div class="radar-bar-fill" style="width:50%;background:var(--amber)"></div></div>
+                <div class="radar-count">5</div>
+              </div>
+              <div class="radar-row">
+                <div class="radar-label">R4 · BROKER</div>
+                <div class="radar-bar-bg"><div class="radar-bar-fill" style="width:20%;background:var(--teal)"></div></div>
+                <div class="radar-count">2</div>
+              </div>
+              <div class="radar-row">
+                <div class="radar-label">R5 · VĨ MÔ</div>
+                <div class="radar-bar-bg"><div class="radar-bar-fill" style="width:70%;background:var(--green)"></div></div>
+                <div class="radar-count">7</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- REGION STATUS -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <div class="panel-title-dot" style="background:var(--teal)"></div>
+                BẢN ĐỒ 3 MIỀN
+              </div>
+            </div>
+            <div class="region-grid">
+              <div class="region-card">
+                <div class="region-badge region-bac">BẮC</div>
+                <div class="region-info">
+                  <div class="region-title">Hạ tầng logistics bùng nổ</div>
+                  <div class="region-sub">Hải Phòng, Quảng Ninh, Bắc Ninh</div>
+                </div>
+                <div class="region-temp">🔴</div>
+              </div>
+              <div class="region-card">
+                <div class="region-badge region-trung">TRUNG</div>
+                <div class="region-info">
+                  <div class="region-title">Điện gió offshore đột phá</div>
+                  <div class="region-sub">Quảng Nam, Đà Nẵng, Bình Định</div>
+                </div>
+                <div class="region-temp">🔴</div>
+              </div>
+              <div class="region-card">
+                <div class="region-badge region-nam">NAM</div>
+                <div class="region-info">
+                  <div class="region-title">KCN &amp; FDI dòng vốn mới</div>
+                  <div class="region-sub">Bình Dương, Đồng Nai, Long An</div>
+                </div>
+                <div class="region-temp">🟡</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- BOTTOM GRID -->
+      <div class="grid-bottom">
+
+        <!-- OPPORTUNITY TABLE -->
+        <div class="panel" style="grid-column:span 2;">
+          <div class="panel-header">
+            <div class="panel-title">
+              <div class="panel-title-dot" style="background:var(--amber)"></div>
+              CƠ HỘI NHÂN SỰ — ROI MAPPING
+            </div>
+            <span class="badge badge-new">4 vị trí mới</span>
+          </div>
+          <table class="opp-table">
+            <thead>
+              <tr>
+                <th>VỊ TRÍ / CÔNG TY</th>
+                <th>RADAR</th>
+                <th>XÁC SUẤT</th>
+                <th>GIÁ TRỊ</th>
+                <th>CỬA SỔ</th>
+                <th>HÀNH ĐỘNG</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <span class="opp-position">CFO — Năng lượng tái tạo</span>
+                  <span class="opp-company">TKV Offshore Wind · Miền Trung</span>
+                </td>
+                <td><span class="badge" style="background:rgba(255,77,109,0.1);color:var(--red);">R2 · M&A</span></td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-track"><div class="prob-fill" style="width:75%"></div></div>
+                    <span class="prob-text">75%</span>
+                  </div>
+                </td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--green);">4–5 tháng lương</td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--amber);">3–4 tuần</td>
+                <td><span class="action-badge act-urgent">TIẾP CẬN NGAY</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="opp-position">Giám đốc Đầu tư</span>
+                  <span class="opp-company">Viglacera Group · Hà Nội</span>
+                </td>
+                <td><span class="badge" style="background:rgba(167,139,250,0.1);color:var(--purple);">R1 · NHÂN SỰ</span></td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-track"><div class="prob-fill" style="width:60%"></div></div>
+                    <span class="prob-text">60%</span>
+                  </div>
+                </td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--green);">3–4 tháng lương</td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--amber);">5–6 tuần</td>
+                <td><span class="action-badge act-watch">THEO DÕI</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="opp-position">COO — Logistics</span>
+                  <span class="opp-company">GEMADEPT Corp · Hải Phòng</span>
+                </td>
+                <td><span class="badge" style="background:rgba(0,212,255,0.1);color:var(--accent);">R3 · JD VIP</span></td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-track"><div class="prob-fill" style="width:85%"></div></div>
+                    <span class="prob-text">85%</span>
+                  </div>
+                </td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--green);">5–6 tháng lương</td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--amber);">2–3 tuần</td>
+                <td><span class="action-badge act-urgent">TIẾP CẬN NGAY</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="opp-position">General Director — BĐS KCN</span>
+                  <span class="opp-company">Becamex IDC · Bình Dương</span>
+                </td>
+                <td><span class="badge" style="background:rgba(57,217,138,0.1);color:var(--green);">R5 · VĨ MÔ</span></td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-track"><div class="prob-fill" style="width:45%"></div></div>
+                    <span class="prob-text">45%</span>
+                  </div>
+                </td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--green);">4 tháng lương</td>
+                <td style="font-family:var(--mono);font-size:11px;color:var(--text3);">8–10 tuần</td>
+                <td><span class="action-badge act-pipeline">PIPELINE</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- POWER BROKER -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <div class="panel-title-dot" style="background:var(--teal)"></div>
+              POWER BROKER
+            </div>
+          </div>
+          <div class="broker-list">
+            <div class="broker-item">
+              <div>
+                <div class="broker-name">Navigos Search</div>
+                <div class="broker-type">HEADHUNTER · TOÀN QUỐC</div>
+              </div>
+              <div class="broker-activity">
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-mid"></div>
+              </div>
+            </div>
+            <div class="broker-item">
+              <div>
+                <div class="broker-name">VILAF Law Firm</div>
+                <div class="broker-type">PHÁP LÝ M&A · HÀ NỘI</div>
+              </div>
+              <div class="broker-activity">
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-off"></div>
+                <div class="activity-dot dot-off"></div>
+              </div>
+            </div>
+            <div class="broker-item">
+              <div>
+                <div class="broker-name">VinaCapital</div>
+                <div class="broker-type">QUỸ ĐẦU TƯ · PE FUND</div>
+              </div>
+              <div class="broker-activity">
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-mid"></div>
+                <div class="activity-dot dot-off"></div>
+                <div class="activity-dot dot-off"></div>
+              </div>
+            </div>
+            <div class="broker-item">
+              <div>
+                <div class="broker-name">Talentnet Corp</div>
+                <div class="broker-type">HEADHUNTER · HCM</div>
+              </div>
+              <div class="broker-activity">
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-on"></div>
+                <div class="activity-dot dot-off"></div>
+              </div>
+            </div>
+            <div class="broker-item">
+              <div>
+                <div class="broker-name">Dragon Capital</div>
+                <div class="broker-type">QUỸ ĐẦU TƯ · CK</div>
+              </div>
+              <div class="broker-activity">
+                <div class="activity-dot dot-mid"></div>
+                <div class="activity-dot dot-mid"></div>
+                <div class="activity-dot dot-off"></div>
+                <div class="activity-dot dot-off"></div>
+                <div class="activity-dot dot-off"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── WEEKLY VIEW ─── -->
+  <div id="weekly-view">
+    <div class="weekly-header">
+      <div class="week-selector">
+        <button class="week-btn" onclick="changeWeek(-1)">← TUẦN TRƯỚC</button>
+        <div class="week-label" id="week-label">TUẦN 22 · 19/05 – 25/05/2026</div>
+        <button class="week-btn" onclick="changeWeek(1)">TUẦN SAU →</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button class="btn-export" onclick="openExport()">⬆ XUẤT BÁO CÁO TUẦN</button>
+    </div>
+
+    <div class="report-container">
+
+      <div class="report-block" style="border-color:var(--accent);border-left:3px solid var(--accent);">
+        <div class="report-section-title">§ 0 · EXECUTIVE PULSE — ĐỌC TRONG 60 GIÂY</div>
+        <div class="report-kv">
+          <div class="report-kv-key">TÍN HIỆU NÓNG NHẤT</div>
+          <div class="report-kv-val">BOT điện gió offshore Miền Trung đang trong giai đoạn cuối đàm phán — nhân sự C-suite sẽ được kích hoạt trong 4–6 tuần tới</div>
+          <div class="report-kv-key">NGÀNH DỊCH CHUYỂN</div>
+          <div class="report-kv-val">Khu Công Nghiệp + Logistics → FDI Đông Nam Á đang tái định hướng vào Bắc Việt Nam</div>
+          <div class="report-kv-key">VÙNG TRỌNG ĐIỂM</div>
+          <div class="report-kv-val">🔴 Bắc (Hải Phòng – Quảng Ninh) &amp; Trung (Đà Nẵng – Bình Định)</div>
+          <div class="report-kv-key">CƠ HỘI ƯU TIÊN</div>
+          <div class="report-kv-val">COO GEMADEPT (85% xác suất) · CFO TKV Offshore (75%) — cần tiếp cận trước 02/06/2026</div>
+          <div class="report-kv-key">CẢNH BÁO RỦI RO</div>
+          <div class="report-kv-val">Radar 4 (Broker) đang yếu — thiếu tín hiệu headhunter quốc tế; cần bổ sung keyword Korn Ferry, Spencer Stuart</div>
+        </div>
+      </div>
+
+      <div class="report-block">
+        <div class="report-section-title">§ 1 · VĨ MÔ THỊ TRƯỜNG</div>
+        <div class="report-body">
+          <p><strong style="color:var(--accent)">Chính sách mới:</strong> Quyết định 721/QĐ-TTg phê duyệt quy hoạch logistics Hải Phòng – Quảng Ninh đến 2035, mở ra làn sóng đầu tư hạ tầng cảng biển và kho vận. Hàm ý nhân sự: nhu cầu CEO/COO cho các liên doanh logistics sẽ xuất hiện trong Q3/2026.</p>
+          <p><strong style="color:var(--accent)">Dòng vốn đáng chú ý:</strong> VinaCapital rót 180 triệu USD vào KCN Đông Nam Bộ, đang tìm General Director có kinh nghiệm FDI. Dragon Capital mua 15% cổ phần GEMADEPT — tín hiệu tái cơ cấu ban lãnh đạo.</p>
+          <p><strong style="color:var(--accent)">Nhận định tổng hợp:</strong> Thị trường nhân sự cấp cao đang nghiêng về ba ngành: điện tái tạo offshore, logistics – cảng biển, và BĐS công nghiệp. Window cơ hội executive search tập trung Q2–Q3/2026. Các tổ chức headhunter nội địa (Navigos, Talentnet) đang bội thu mandate — áp lực cạnh tranh cao nhưng cũng là tín hiệu thị trường nóng.</p>
+        </div>
+      </div>
+
+      <div class="report-block">
+        <div class="report-section-title">§ 2 · BẢN ĐỒ 3 MIỀN — TÓM TẮT TUẦN</div>
+        <div class="report-kv">
+          <div class="report-kv-key">🔴 MIỀN BẮC</div>
+          <div class="report-kv-val">Quy hoạch logistics Hải Phòng phê duyệt · GEMADEPT – Dragon Capital deal · Nhân vật theo dõi: TGĐ mới GEMADEPT sau M&A</div>
+          <div class="report-kv-key">🔴 MIỀN TRUNG</div>
+          <div class="report-kv-val">BOT điện gió offshore giai đoạn cuối · Đà Nẵng mở KCN công nghệ cao mới · Nhân vật theo dõi: CFO đang tìm kiếm cho liên doanh offshore</div>
+          <div class="report-kv-key">🟡 MIỀN NAM</div>
+          <div class="report-kv-val">Becamex IDC tuyển GD · VinaCapital đầu tư KCN Đông Nam Bộ · FDI Hàn Quốc – Nhật vẫn ổn định</div>
+        </div>
+      </div>
+
+      <div class="report-block">
+        <div class="report-section-title">§ 5 · HÀNH ĐỘNG TUẦN TỚI</div>
+        <ul class="action-list" id="action-list">
+          <li class="action-item">
+            <div class="action-check" onclick="toggleCheck(this)"></div>
+            <div>
+              <div>Tiếp cận network để map ứng viên COO cho GEMADEPT — ưu tiên background cảng biển + M&A</div>
+              <div class="action-deadline">Deadline: 02/06/2026</div>
+            </div>
+          </li>
+          <li class="action-item">
+            <div class="action-check" onclick="toggleCheck(this)"></div>
+            <div>
+              <div>Bổ sung keyword Korn Ferry, Spencer Stuart, Egon Zehnder vào Radar 4 trên Google Alerts</div>
+              <div class="action-deadline">Deadline: 28/05/2026</div>
+            </div>
+          </li>
+          <li class="action-item">
+            <div class="action-check" onclick="toggleCheck(this)"></div>
+            <div>
+              <div>Xác minh thông tin JD CFO TKV Offshore — liên hệ VILAF để confirm trạng thái deal</div>
+              <div class="action-deadline">Deadline: 30/05/2026</div>
+            </div>
+          </li>
+          <li class="action-item">
+            <div class="action-check" onclick="toggleCheck(this)"></div>
+            <div>
+              <div>Review Becamex IDC opportunity — đánh giá khả năng match ứng viên GD có kinh nghiệm FDI Hàn/Nhật</div>
+              <div class="action-deadline">Deadline: 05/06/2026</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="report-block" style="opacity:0.7;">
+        <div class="report-section-title">META · CHẤT LƯỢNG DỮ LIỆU</div>
+        <div class="report-kv">
+          <div class="report-kv-key">Sự kiện thô</div>
+          <div class="report-kv-val">28 sự kiện từ 5 Radar</div>
+          <div class="report-kv-key">Đủ tín hiệu</div>
+          <div class="report-kv-val">16 sự kiện (57%)</div>
+          <div class="report-kv-key">Radar yếu nhất</div>
+          <div class="report-kv-val">Radar 4 — Broker · Chỉ 2/28 sự kiện, cần mở rộng keyword quốc tế</div>
+          <div class="report-kv-key">Next review</div>
+          <div class="report-kv-val">Thứ Hai 01/06/2026</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+  <!-- ─── GROQ QUICK ANALYSIS PANEL ─── -->
+  <div style="max-width:1400px;margin:0 auto;padding:0 24px 20px;">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="panel-title-dot" style="background:var(--green)"></div>
+          GROQ QUICK ANALYSIS — paste tiêu đề bài tin, Groq phân loại ngay
+        </div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">llama-3.3-70b · free tier · 30 req/min</span>
+      </div>
+      <div style="padding:16px 18px;display:flex;gap:10px;align-items:flex-end;">
+        <textarea id="groq-input" placeholder="Paste tiêu đề các bài tin vào đây, mỗi dòng 1 bài (tối đa 10 dòng)&#10;VD: Dragon Capital mua 15% cổ phần GEMADEPT Corp&#10;     TKV tìm CFO cho liên doanh offshore wind..."
+          style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--body);font-size:12px;padding:12px;border-radius:8px;resize:vertical;min-height:80px;line-height:1.6;"></textarea>
+        <button id="groq-run-btn" onclick="runGroqAnalysis()"
+          style="background:var(--green);color:#000;border:none;font-family:var(--mono);font-size:11px;font-weight:600;padding:10px 18px;border-radius:8px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;height:44px;">
+          ▶ PHÂN TÍCH VỚI GROQ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── WATCHLIST VIEW ─── -->
+  <div id="watchlist-view" style="display:none;">
+    <div style="max-width:860px;margin:0 auto;padding:20px 24px;">
+
+      <!-- Form thêm mới -->
+      <div class="panel" style="margin-bottom:16px;border-color:var(--amber);">
+        <div class="panel-header">
+          <div class="panel-title">
+            <div class="panel-title-dot" style="background:var(--amber)"></div>
+            THÊM YÊU CẦU THEO DÕI MỚI
+          </div>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">Tự lưu — hiển thị lần sau khi mở lại</span>
+        </div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;display:block;margin-bottom:6px;">MÔ TẢ YÊU CẦU *</label>
+            <input id="watch-desc" type="text" placeholder="VD: Tuyển dụng Giám đốc Tuyển dụng trên toàn quốc"
+              style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--body);font-size:13px;padding:10px 12px;border-radius:8px;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;">
+            <div>
+              <label style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;display:block;margin-bottom:6px;">TỪ KHÓA BỔ SUNG</label>
+              <input id="watch-keywords" type="text" placeholder="Head of TA, TA Director, HR Director..."
+                style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--body);font-size:12px;padding:10px 12px;border-radius:8px;">
+            </div>
+            <div>
+              <label style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;display:block;margin-bottom:6px;">KHU VỰC</label>
+              <select id="watch-geo" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px 12px;border-radius:8px;">
+                <option value="TOAN_QUOC">Toàn quốc</option>
+                <option value="BAC">Miền Bắc</option>
+                <option value="TRUNG">Miền Trung</option>
+                <option value="NAM">Miền Nam</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;display:block;margin-bottom:6px;">ƯU TIÊN</label>
+              <select id="watch-priority" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px 12px;border-radius:8px;">
+                <option value="1">🔴 Cao</option>
+                <option value="2">🟡 Trung</option>
+                <option value="3">🟢 Thấp</option>
+              </select>
+            </div>
+          </div>
+          <button id="watch-submit" onclick="submitWatchForm()"
+            style="align-self:flex-start;background:var(--amber);color:#000;border:none;font-family:var(--mono);font-size:11px;font-weight:600;padding:10px 20px;border-radius:8px;cursor:pointer;letter-spacing:0.5px;">
+            + LƯU THEO DÕI
+          </button>
+        </div>
+      </div>
+
+      <!-- Danh sách hiện tại -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <div class="panel-title-dot" style="background:var(--purple)"></div>
+            DANH SÁCH ĐANG THEO DÕI
+          </div>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">Tín hiệu khớp sẽ được highlight ⭐ trong Daily Feed</span>
+        </div>
+        <div id="watchlist-items"></div>
+      </div>
+
+    </div>
+  </div>
+
+<!-- EXPORT MODAL -->
+<div class="modal-overlay" id="export-modal" onclick="if(event.target===this)closeExport()">
+  <div class="modal">
+    <div class="modal-title">Xuất Báo Cáo</div>
+    <div class="modal-sub" id="export-modal-sub">Chọn định dạng xuất</div>
+    <div class="export-options">
+      <div class="export-opt" onclick="exportPDF()">
+        <div class="export-opt-icon" style="background:rgba(255,77,109,0.15);">📄</div>
+        <div class="export-opt-text">
+          <div class="name">PDF — Báo cáo đầy đủ</div>
+          <div class="desc">Xuất toàn bộ RSIR, sẵn sàng gửi và lưu trữ</div>
+        </div>
+      </div>
+      <div class="export-opt" onclick="exportHTML()">
+        <div class="export-opt-icon" style="background:rgba(0,212,255,0.15);">🔗</div>
+        <div class="export-opt-text">
+          <div class="name">HTML — Chia sẻ link</div>
+          <div class="desc">File HTML tự chứa, mở trên browser, share được</div>
+        </div>
+      </div>
+      <div class="export-opt" onclick="exportJSON()">
+        <div class="export-opt-icon" style="background:rgba(57,217,138,0.15);">📊</div>
+        <div class="export-opt-text">
+          <div class="name">JSON — Dữ liệu thô</div>
+          <div class="desc">Xuất raw data để đẩy vào Google Sheet lưu trữ</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-cancel" onclick="closeExport()">HỦY</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG — anh Truyền chỉ cần điền 3 dòng này
+// ═══════════════════════════════════════════════
+const CONFIG = {
+  GROQ_API_KEY:      "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",   // ← paste Groq key vào đây
+  SHEET_DATABASE_ID: "1yt5DsBogVdSgtJ6V8M9vGRTOnCHfh62bHT8fqC8qYlI",
+  SHEET_CONFIG_ID:   "1ec-ivNPxSaIbw8M99gGUJ1U_t7keYMCZiI5pMHfPSW8",
+  APPS_SCRIPT_URL:   "",   // ← paste Apps Script URL sau khi deploy (cho custom watchlist)
+};
+
+// ═══════════════════════════════════════════════
+// SHEET CSV READER — không cần API key
+// ═══════════════════════════════════════════════
+async function fetchSheetCSV(sheetId, tabName) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
+    const text = await res.text();
+    return parseCSV(text);
+  } catch (e) {
+    console.warn("Sheet read error:", e.message);
+    return null;
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => obj[h.replace(/"/g,'').trim()] = (vals[i]||'').replace(/"/g,'').trim());
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; continue; }
+    if (c === ',' && !inQ) { result.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  result.push(cur);
+  return result;
+}
+
+// ═══════════════════════════════════════════════
+// GROQ — phân tích tín hiệu
+// ═══════════════════════════════════════════════
+async function analyzeWithGroq(title, summary) {
+  if (!CONFIG.GROQ_API_KEY) return null;
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${CONFIG.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.1,
+        max_tokens: 300,
+        messages: [
+          {
+            role: "system",
+            content: `Bạn là hệ thống phân loại tin tức thị trường nhân sự cấp cao Việt Nam.
+Trả về JSON THUẦN TÚY (không markdown, không giải thích, không backtick).`
+          },
+          {
+            role: "user",
+            content: `Phân tích bài tin sau và trả về JSON:
+{
+  "radar_tag": "R1|R2|R3|R4|R5",
+  "category": "nhansu|ma|chinhsach|jd|trunggian",
+  "geo": "BAC|TRUNG|NAM|TOAN_QUOC",
+  "heat_score": 1,
+  "summary_3line": "Ai / Làm gì / Ở đâu (tối đa 50 từ)",
+  "is_opportunity": false,
+  "position": "",
+  "company": ""
+}
+R1=Nhân sự cấp cao, R2=M&A, R3=JD VIP, R4=Power Broker, R5=Chính sách vĩ mô
+heat_score: 1=bình thường, 2=đáng chú ý, 3=khẩn cấp
+
+BÀI TIN: ${title}
+TÓM TẮT: ${summary || 'Không có'}`
+          }
+        ]
+      })
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    return JSON.parse(text.replace(/```json|```/g,'').trim());
+  } catch(e) {
+    console.warn("Groq error:", e.message);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CUSTOM WATCHLIST — nhập tay + lưu
+// ═══════════════════════════════════════════════
+const STORAGE_KEY = 'rocky_watchlist';
+
+function loadWatchlist() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveWatchlistLocal(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+async function addWatchItem(description, keywords, geo, priority) {
+  const item = {
+    watch_id: `W${Date.now()}`,
+    date_added: new Date().toLocaleDateString('vi-VN'),
+    description,
+    keywords,
+    geo_filter: geo || 'TOAN_QUOC',
+    priority: priority || 1,
+    is_active: true
+  };
+
+  // Lưu local trước (luôn hoạt động)
+  const list = loadWatchlist();
+  list.unshift(item);
+  saveWatchlistLocal(list);
+
+  // Đẩy lên Sheet nếu có Apps Script URL
+  if (CONFIG.APPS_SCRIPT_URL) {
+    try {
+      await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item)
+      });
+    } catch(e) {
+      console.warn("Apps Script sync failed (data saved locally):", e.message);
+    }
+  }
+
+  return item;
+}
+
+function removeWatchItem(watchId) {
+  const list = loadWatchlist().filter(i => i.watch_id !== watchId);
+  saveWatchlistLocal(list);
+  renderWatchlist();
+}
+
+function renderWatchlist() {
+  const container = document.getElementById('watchlist-items');
+  if (!container) return;
+  const list = loadWatchlist();
+  if (list.length === 0) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px;">Chưa có mục theo dõi. Thêm bên dưới.</div>`;
+    return;
+  }
+  container.innerHTML = list.map(item => `
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px;">${item.description}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);">
+          ${item.keywords ? `🔑 ${item.keywords} · ` : ''}📍 ${item.geo_filter} · P${item.priority} · ${item.date_added}
+        </div>
+      </div>
+      <button onclick="removeWatchItem('${item.watch_id}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
+    </div>
+  `).join('');
+}
+
+async function submitWatchForm() {
+  const desc = document.getElementById('watch-desc').value.trim();
+  const kw   = document.getElementById('watch-keywords').value.trim();
+  const geo  = document.getElementById('watch-geo').value;
+  const pri  = parseInt(document.getElementById('watch-priority').value);
+
+  if (!desc) { alert('Vui lòng nhập mô tả yêu cầu theo dõi.'); return; }
+
+  const btn = document.getElementById('watch-submit');
+  btn.textContent = 'Đang lưu...';
+  btn.disabled = true;
+
+  await addWatchItem(desc, kw, geo, pri);
+
+  document.getElementById('watch-desc').value = '';
+  document.getElementById('watch-keywords').value = '';
+  btn.textContent = '+ LƯU THEO DÕI';
+  btn.disabled = false;
+
+  renderWatchlist();
+  showToast('Đã lưu! Hệ thống sẽ ưu tiên tín hiệu khớp yêu cầu này.');
+}
+
+// ═══════════════════════════════════════════════
+// SHEET LIVE FEED — load từ Google Sheet
+// ═══════════════════════════════════════════════
+let sheetSignals = [];
+let usingLiveData = false;
+
+async function loadLiveFeed() {
+  const statusEl = document.getElementById('feed-status');
+  if (statusEl) statusEl.textContent = 'Đang tải...';
+
+  const rows = await fetchSheetCSV(CONFIG.SHEET_DATABASE_ID, 'RAW_SIGNALS');
+
+  if (rows && rows.length > 0) {
+    sheetSignals = rows.map(r => ({
+      tag: (r.category || 'nhansu').toLowerCase().replace('_',''),
+      label: categoryLabel(r.category),
+      title: r.title || '',
+      src: r.source || '',
+      date: r.date_added || '',
+      geo: geoLabel(r.geo),
+      heat: heatClass(r.heat_score),
+      url: r.url || '',
+      summary: r.summary_3line || ''
+    })).filter(s => s.title);
+
+    usingLiveData = true;
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:var(--green)">● LIVE</span> · ${sheetSignals.length} tín hiệu từ Sheet`;
+    }
+    renderSignals();
+  } else {
+    // Sheet chưa có data hoặc chưa public → dùng sample
+    usingLiveData = false;
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:var(--amber)">● SAMPLE</span> · Sheet chưa có dữ liệu`;
+    }
+  }
+}
+
+function categoryLabel(cat) {
+  const map = { nhansu:'NHÂN SỰ', ma:'M&A', chinhsach:'CHÍNH SÁCH', jd:'JD VIP', trunggian:'TRUNG GIAN' };
+  return map[(cat||'').toLowerCase()] || 'KHÁC';
+}
+
+function geoLabel(geo) {
+  const map = { BAC:'BẮC', TRUNG:'TRUNG', NAM:'NAM', TOAN_QUOC:'TOÀN QUỐC' };
+  return map[(geo||'').toUpperCase()] || geo || '';
+}
+
+function heatClass(score) {
+  const n = parseInt(score);
+  if (n === 3) return 'hot';
+  if (n === 2) return 'warm';
+  return 'cool';
+}
+
+// ═══════════════════════════════════════════════
+// GROQ RUN — phân tích batch từ paste text
+// ═══════════════════════════════════════════════
+async function runGroqAnalysis() {
+  const input = document.getElementById('groq-input')?.value?.trim();
+  if (!input) return;
+  if (!CONFIG.GROQ_API_KEY) {
+    showToast('⚠️ Chưa có Groq API key trong CONFIG', 'warn');
+    return;
+  }
+
+  const btn = document.getElementById('groq-run-btn');
+  btn.textContent = 'Đang phân tích...';
+  btn.disabled = true;
+
+  // Split by newline — mỗi dòng là 1 tín hiệu
+  const items = input.split('\n').filter(l => l.trim().length > 10);
+  const results = [];
+
+  for (const item of items.slice(0, 10)) { // max 10 / lần
+    const result = await analyzeWithGroq(item, '');
+    if (result) {
+      results.push({
+        tag: result.category || 'nhansu',
+        label: categoryLabel(result.category),
+        title: item.trim(),
+        src: 'Groq Analysis',
+        date: new Date().toLocaleDateString('vi-VN'),
+        geo: geoLabel(result.geo),
+        heat: heatClass(result.heat_score),
+        summary: result.summary_3line || '',
+        url: ''
+      });
+    }
+  }
+
+  if (results.length > 0) {
+    // Prepend to signals
+    signals.unshift(...results);
+    renderSignals();
+    document.getElementById('groq-input').value = '';
+    showToast(`✓ Groq phân tích xong ${results.length} tín hiệu, đã thêm vào feed.`);
+  }
+
+  btn.textContent = '▶ PHÂN TÍCH VỚI GROQ';
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════
+// SAMPLE DATA (fallback khi Sheet chưa có data)
+// ═══════════════════════════════════════════════
+const SAMPLE_SIGNALS = [
+  { tag: 'ma', label: 'M&A', title: 'Dragon Capital mua 15% cổ phần GEMADEPT Corp — Board sắp tái cơ cấu', src: 'CafeF', date: '26/05/2026', geo: 'BẮC', heat: 'hot', url:'', summary:'' },
+  { tag: 'nhansu', label: 'NHÂN SỰ', title: 'TKV tìm CFO cho liên doanh offshore wind — yêu cầu kinh nghiệm fundraising quốc tế', src: 'VnEconomy', date: '26/05/2026', geo: 'TRUNG', heat: 'hot', url:'', summary:'' },
+  { tag: 'chinhsach', label: 'CHÍNH SÁCH', title: 'QĐ 721/QĐ-TTg: Phê duyệt quy hoạch logistics Hải Phòng – Quảng Ninh đến 2035', src: 'Chinhphu.vn', date: '25/05/2026', geo: 'BẮC', heat: 'hot', url:'', summary:'' },
+  { tag: 'jd', label: 'JD VIP', title: 'Becamex IDC đăng tuyển General Director — lần đầu dùng headhunter nước ngoài', src: 'LinkedIn', date: '25/05/2026', geo: 'NAM', heat: 'warm', url:'', summary:'' },
+  { tag: 'ma', label: 'M&A', title: 'VinaCapital rót 180 triệu USD vào KCN Đông Nam Bộ — SPV đang setup', src: 'DealStreetAsia', date: '24/05/2026', geo: 'NAM', heat: 'hot', url:'', summary:'' },
+  { tag: 'nhansu', label: 'NHÂN SỰ', title: 'Bổ nhiệm tân Phó Tổng Giám đốc Tập đoàn Điện lực Việt Nam — background kỹ thuật điện', src: 'Baodautu', date: '24/05/2026', geo: 'BẮC', heat: 'warm', url:'', summary:'' },
+  { tag: 'trunggian', label: 'TRUNG GIAN', title: 'Navigos Search nhận 3 mandate C-suite mới trong tuần — năng lượng và logistics', src: 'LinkedIn', date: '23/05/2026', geo: 'TOÀN QUỐC', heat: 'warm', url:'', summary:'' },
+  { tag: 'chinhsach', label: 'CHÍNH SÁCH', title: 'Bộ Công Thương phê duyệt khung giá điện gió offshore — mở BOT round 2', src: 'MoIT', date: '23/05/2026', geo: 'TRUNG', heat: 'hot', url:'', summary:'' },
+  { tag: 'jd', label: 'JD VIP', title: 'Confidential search: COO cho chuỗi kho lạnh logistics — headhunter đăng kín LinkedIn', src: 'LinkedIn', date: '22/05/2026', geo: 'NAM', heat: 'warm', url:'', summary:'' },
+  { tag: 'ma', label: 'M&A', title: 'Sembcorp đàm phán mua cổ phần KCN tại Hưng Yên — phase due diligence', src: 'Reuters VN', date: '22/05/2026', geo: 'BẮC', heat: 'warm', url:'', summary:'' },
+  { tag: 'trunggian', label: 'TRUNG GIAN', title: 'VILAF tư vấn pháp lý cho 2 deal M&A năng lượng tái tạo đồng thời', src: 'VILAF.com', date: '21/05/2026', geo: 'TOÀN QUỐC', heat: 'cool', url:'', summary:'' },
+  { tag: 'nhansu', label: 'NHÂN SỰ', title: 'Viglacera Group thay thế Giám đốc Đầu tư sau khi hoàn tất IPO giai đoạn 2', src: 'Ndh.vn', date: '21/05/2026', geo: 'BẮC', heat: 'warm', url:'', summary:'' },
+];
+
+let signals = [...SAMPLE_SIGNALS];
+let currentFilter = 'all';
+
+// ═══════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════════
+function renderSignals() {
+  const feed = document.getElementById('signal-feed');
+  const src = usingLiveData ? sheetSignals : signals;
+  const filtered = currentFilter === 'all' ? src : src.filter(s => s.tag === currentFilter);
+
+  if (filtered.length === 0) {
+    feed.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px;">Không có tín hiệu cho bộ lọc này.</div>`;
+    return;
+  }
+
+  // Match với watchlist
+  const watchlist = loadWatchlist();
+  const watchKeywords = watchlist.flatMap(w =>
+    (w.keywords || w.description).toLowerCase().split(/[,\s]+/).filter(k => k.length > 3)
+  );
+
+  feed.innerHTML = filtered.map(s => {
+    const titleLower = s.title.toLowerCase();
+    const isWatchMatch = watchKeywords.some(k => titleLower.includes(k));
+    return `
+    <div class="signal-item" style="${isWatchMatch ? 'border-left:2px solid var(--amber);' : ''}" ${s.url ? `onclick="window.open('${s.url}','_blank')"` : ''}>
+      ${isWatchMatch ? `<div style="position:absolute;right:12px;top:8px;font-family:var(--mono);font-size:9px;color:var(--amber);letter-spacing:1px;">⭐ WATCHLIST</div>` : ''}
+      <div><span class="signal-tag tag-${s.tag}">${s.label}</span></div>
+      <div class="signal-content">
+        <div class="signal-title">${s.title}</div>
+        ${s.summary ? `<div style="font-size:11px;color:var(--text2);margin:3px 0 4px;line-height:1.4;">${s.summary}</div>` : ''}
+        <div class="signal-meta">
+          <span>${s.src}</span>
+          <span>${s.date}</span>
+          <span>${s.geo}</span>
+          ${s.url ? '<span style="color:var(--accent);">↗ link</span>' : ''}
+        </div>
+      </div>
+      <div class="signal-heat"><div class="heat-badge heat-${s.heat}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function filterSignals(val) { currentFilter = val; renderSignals(); }
+
+function updateDate() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('live-date').textContent =
+    `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+function switchView(view) {
+  document.getElementById('daily-view').style.display = view === 'daily' ? 'block' : 'none';
+  document.getElementById('weekly-view').style.display = view === 'weekly' ? 'block' : 'none';
+  document.getElementById('watchlist-view').style.display = view === 'watchlist' ? 'block' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i===0&&view==='daily')||(i===1&&view==='weekly')||(i===2&&view==='watchlist'));
+  });
+  if (view === 'watchlist') renderWatchlist();
+}
+
+let weekOffset = 0;
+function changeWeek(dir) {
+  weekOffset += dir;
+  const base = new Date(2026,4,19);
+  base.setDate(base.getDate() + weekOffset*7);
+  const end = new Date(base); end.setDate(end.getDate()+6);
+  const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  const wn = Math.ceil((base - new Date(base.getFullYear(),0,1))/604800000)+1;
+  document.getElementById('week-label').textContent = `TUẦN ${wn} · ${fmt(base)} – ${fmt(end)}/${end.getFullYear()}`;
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════
+function openExport() { document.getElementById('export-modal').classList.add('open'); }
+function closeExport() { document.getElementById('export-modal').classList.remove('open'); }
+
+function exportPDF() { closeExport(); setTimeout(() => window.print(), 300); }
+
+function exportHTML() {
+  closeExport();
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const now = new Date();
+  a.download = `rocky-rsir-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.html`;
+  a.click();
+}
+
+function exportJSON() {
+  closeExport();
+  const src = usingLiveData ? sheetSignals : signals;
+  const data = { exportDate: new Date().toISOString(), signals: src, watchlist: loadWatchlist() };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `rocky-data-${Date.now()}.json`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function showToast(msg, type='ok') {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position:'fixed', bottom:'24px', right:'24px', zIndex:999,
+    background: type==='warn' ? 'rgba(255,179,71,0.15)' : 'rgba(57,217,138,0.15)',
+    border: `1px solid ${type==='warn' ? 'var(--amber)' : 'var(--green)'}`,
+    color: type==='warn' ? 'var(--amber)' : 'var(--green)',
+    fontFamily:'var(--mono)', fontSize:'12px', padding:'12px 18px',
+    borderRadius:'8px', maxWidth:'360px', lineHeight:'1.5',
+    backdropFilter:'blur(4px)'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+  el.textContent = el.classList.contains('checked') ? '✓' : '';
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+updateDate();
+setInterval(updateDate, 60000);
+renderSignals();
+renderWatchlist();
+
+// Load live data từ Sheet (nếu Sheet đã public)
+loadLiveFeed();
+// Refresh mỗi 30 phút
+setInterval(loadLiveFeed, 30*60*1000);
+</script>
+</body>
+</html>
